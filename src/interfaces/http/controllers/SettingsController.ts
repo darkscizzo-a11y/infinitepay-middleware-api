@@ -1,6 +1,14 @@
 import { FastifyReply, FastifyRequest } from 'fastify';
+import { z } from 'zod';
 import { IGatewayConfigRepository } from '../../../domain/repositories/index';
 import { InfinitePayClient } from '../../../infrastructure/http/clients/InfinitePayClient';
+
+const updateSettingsSchema = z.object({
+  apiKey: z.string().min(1),
+  clientId: z.string().min(1),
+  clientSecret: z.string().min(1),
+  webhookSecret: z.string().min(1),
+});
 
 export class SettingsController {
   constructor(
@@ -16,15 +24,12 @@ export class SettingsController {
     }
     reply.send({
       configured: true,
-      apiKey: config.apiKey,
       clientId: config.clientId,
-      clientSecret: config.clientSecret,
-      webhookSecret: config.webhookSecret,
     });
   }
 
   async update(request: FastifyRequest, reply: FastifyReply): Promise<void> {
-    const body = request.body as any;
+    const body = updateSettingsSchema.parse(request.body);
     const config = await this.gatewayConfigRepo.upsert({
       apiKey: body.apiKey,
       clientId: body.clientId,
@@ -32,12 +37,6 @@ export class SettingsController {
       webhookSecret: body.webhookSecret,
     });
     this.ipClient.setCredentials(body.apiKey, body.clientId, body.clientSecret);
-    reply.send({
-      configured: true,
-      apiKey: config.apiKey,
-      clientId: config.clientId,
-      clientSecret: config.clientSecret,
-      webhookSecret: config.webhookSecret,
-    });
+    reply.send({ configured: true });
   }
 }

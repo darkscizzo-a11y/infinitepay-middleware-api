@@ -1,4 +1,5 @@
 // src/application/use-cases/CreateCheckoutUseCase.ts
+import { PrismaClient } from '@prisma/client';
 import { ICheckoutRepository } from '../../domain/repositories/index';
 import { ICustomerRepository } from '../../domain/repositories/index';
 import { IPaymentRepository } from '../../domain/repositories/index';
@@ -10,52 +11,57 @@ export class CreateCheckoutUseCase {
     private readonly checkoutRepository: ICheckoutRepository,
     private readonly customerRepository: ICustomerRepository,
     private readonly paymentRepository: IPaymentRepository,
-    private readonly infinitePayClient: InfinitePayClient
+    private readonly infinitePayClient: InfinitePayClient,
+    private readonly prisma: PrismaClient,
   ) {}
 
   async execute(dto: CreateCheckoutDTO): Promise<CheckoutResponseDTO> {
-    // 1. Upsert customer
-    const customer = await this.customerRepository.findOrCreate(dto.customer);
+    const amountInCents = Math.round(dto.amount * 100);
+    const itemsInCents = dto.items.map((i) => ({
+      ...i,
+      price: Math.round(i.price * 100),
+    }));
 
-    // 2. Create local checkout record
-    const checkout = await this.checkoutRepository.create({
-      customerId: customer.id,
-      amount: dto.amount,
-      description: dto.description,
-      items: dto.items,
+    return this.prisma.$transaction(async (tx) => {
+      const customer = await this.customerRepository.findOrCreate(dto.customer);
+
+      const checkout = await this.checkoutRepository.create({
+        customerId: customer.id,
+        amount: amountInCents,
+        description: dto.description,
+        items: itemsInCents,
+      });
+
+      const ipCheckout = await this.infinitePayClient.createCheckout({
+        customer: dto.customer,
+        items: itemsInCents.map((i) => ({
+          name: i.name,
+          quantity: i.quantity,
+          unit_price: i.price,
+        })),
+        amount: amountInCents,
+        description: dto.description,
+      });
+
+      const updated = await this.checkoutRepository.updateStatus(
+        checkout.id,
+        'pending',
+        ipCheckout.id,
+        ipCheckout.payment_url
+      );
+
+      await this.paymentRepository.create({
+        checkoutId: updated.id,
+        amount: amountInCents,
+      });
+
+      return {
+        id: updated.id,
+        status: updated.status,
+        payment_url: updated.paymentUrl,
+        amount: amountInCents / 100,
+        created_at: updated.createdAt.toISOString(),
+      };
     });
-
-    // 3. Call InfinitePay
-    const ipCheckout = await this.infinitePayClient.createCheckout({
-      customer: dto.customer,
-      items: dto.items.map((i) => ({
-        name: i.name,
-        quantity: i.quantity,
-        unit_price: i.price,
-      })),
-      amount: dto.amount,
-      description: dto.description,
-    });
-
-    // 4. Update checkout with external data
-    const updated = await this.checkoutRepository.updateStatus(
-      checkout.id,
-      'pending',
-      ipCheckout.id,
-      ipCheckout.payment_url
-    );
-
-    await this.paymentRepository.create({
-      checkoutId: updated.id,
-      amount: updated.amount,
-    });
-
-    return {
-      id: updated.id,
-      status: updated.status,
-      payment_url: updated.paymentUrl,
-      amount: updated.amount,
-      created_at: updated.createdAt.toISOString(),
-    };
   }
 }

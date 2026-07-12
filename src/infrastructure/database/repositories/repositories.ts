@@ -185,6 +185,13 @@ export class SubscriptionRepository implements ISubscriptionRepository {
     }) as Promise<Subscription | null>);
   }
 
+  async findByExternalId(externalId: string): Promise<Subscription | null> {
+    return ((this.prisma as any).subscription.findUnique({
+      where: { externalId },
+      include: { customer: true, plan: true, invoices: true },
+    }) as Promise<Subscription | null>);
+  }
+
   async findAll(filters: ListSubscriptionsFilters): Promise<PaginatedResult<Subscription>> {
     const { page, limit, skip } = buildPagination(filters);
     const where: any = {};
@@ -312,8 +319,6 @@ export class SubscriptionInvoiceRepository implements ISubscriptionInvoiceReposi
   }
 
   async getDashboard(referenceDate = new Date()): Promise<SubscriptionDashboard> {
-    await this.markPendingInvoicesAsOverdue(referenceDate);
-
     const [
       activePlans,
       inactivePlans,
@@ -444,6 +449,12 @@ export class GatewayConfigRepository implements IGatewayConfigRepository {
         data,
       }) as Promise<GatewayConfig>;
     }
-    return (this.prisma as any).gatewayConfig.create({ data }) as Promise<GatewayConfig>;
+    const created = await (this.prisma as any).gatewayConfig.create({ data }) as Promise<GatewayConfig>;
+    const verify = await (this.prisma as any).gatewayConfig.findMany();
+    if (verify.length > 1) {
+      const sorted = verify.sort((a: any, b: any) => a.createdAt - b.createdAt);
+      await (this.prisma as any).gatewayConfig.deleteMany({ where: { id: { not: sorted[0].id } } });
+    }
+    return created;
   }
 }

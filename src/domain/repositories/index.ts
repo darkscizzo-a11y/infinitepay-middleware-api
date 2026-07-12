@@ -98,6 +98,7 @@ export interface ListSubscriptionsFilters extends FilterParams {
 export interface ISubscriptionRepository {
   create(data: CreateSubscriptionData): Promise<Subscription>;
   findById(id: string): Promise<Subscription | null>;
+  findByExternalId(externalId: string): Promise<Subscription | null>;
   findAll(filters: ListSubscriptionsFilters): Promise<PaginatedResult<Subscription>>;
   updateStatus(id: string, status: SubscriptionStatus, nextDueDate?: Date): Promise<Subscription>;
 }

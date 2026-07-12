@@ -31,7 +31,10 @@ export class RecurrenceController {
 
   async createPlan(request: FastifyRequest, reply: FastifyReply): Promise<void> {
     const body = createRecurrencePlanSchema.parse(request.body);
-    const plan = await this.planRepository.create(body);
+    const plan = await this.planRepository.create({
+      ...body,
+      amount: Math.round(body.amount * 100),
+    });
     reply.status(201).send(this.serializePlan(plan));
   }
 
@@ -92,10 +95,13 @@ export class RecurrenceController {
     const body = createSubscriptionInvoiceSchema.parse(request.body);
     const subscription = await this.subscriptionRepository.findById(body.subscriptionId);
     if (!subscription) throw new NotFoundError('Subscription');
+    if (!subscription.plan?.amount) throw new NotFoundError('Recurrence plan amount');
+
+    const amountInCents = body.amount ? Math.round(body.amount * 100) : subscription.plan.amount;
 
     const invoice = await this.invoiceRepository.create({
       subscriptionId: subscription.id,
-      amount: body.amount ?? subscription.plan?.amount ?? 0,
+      amount: amountInCents,
       dueDate: new Date(body.dueDate),
       externalId: body.externalId,
       paymentId: body.paymentId,
@@ -120,7 +126,7 @@ export class RecurrenceController {
       external_id: plan.externalId ?? null,
       name: plan.name,
       description: plan.description ?? null,
-      amount: plan.amount,
+      amount: plan.amount / 100,
       interval: plan.interval,
       status: plan.status,
       metadata: plan.metadata ?? null,
@@ -159,7 +165,7 @@ export class RecurrenceController {
       external_id: invoice.externalId ?? null,
       subscription_id: invoice.subscriptionId,
       payment_id: invoice.paymentId ?? null,
-      amount: invoice.amount,
+      amount: invoice.amount / 100,
       status: invoice.status,
       due_date: invoice.dueDate.toISOString(),
       paid_at: invoice.paidAt?.toISOString() ?? null,

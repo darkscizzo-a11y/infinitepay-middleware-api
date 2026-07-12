@@ -1,6 +1,8 @@
 import {
   ICheckoutRepository,
   IPaymentRepository,
+  ISubscriptionInvoiceRepository,
+  ISubscriptionRepository,
   IWebhookEventRepository,
 } from '../../domain/repositories/index';
 import { WebhookEventType } from '../../domain/entities/index';
@@ -19,7 +21,7 @@ export class GetCheckoutUseCase {
       id: checkout.id,
       status: checkout.status,
       payment_url: checkout.paymentUrl,
-      amount: checkout.amount,
+      amount: checkout.amount / 100,
       created_at: checkout.createdAt.toISOString(),
       updated_at: checkout.updatedAt.toISOString(),
       customer: checkout.customer
@@ -28,7 +30,7 @@ export class GetCheckoutUseCase {
       items: checkout.items?.map((item) => ({
         name: item.name,
         quantity: item.quantity,
-        price: item.price,
+        price: item.price / 100,
       })),
     };
   }
@@ -54,7 +56,7 @@ export class ListCheckoutsUseCase {
         id: checkout.id,
         status: checkout.status,
         payment_url: checkout.paymentUrl,
-        amount: checkout.amount,
+        amount: checkout.amount / 100,
         created_at: checkout.createdAt.toISOString(),
         updated_at: checkout.updatedAt.toISOString(),
       })),
@@ -94,16 +96,23 @@ export class ProcessWebhookUseCase {
   constructor(
     private readonly checkoutRepository: ICheckoutRepository,
     private readonly paymentRepository: IPaymentRepository,
-    private readonly webhookEventRepository: IWebhookEventRepository
+    private readonly webhookEventRepository: IWebhookEventRepository,
+    private readonly invoiceRepository?: ISubscriptionInvoiceRepository,
+    private readonly subscriptionRepository?: ISubscriptionRepository,
   ) {}
 
   async execute(payload: WebhookPayload): Promise<void> {
     const eventType = eventTypeMap[payload.event];
+    if (!eventType) {
+      console.warn(`Unknown webhook event type: ${payload.event}, storing as raw event`);
+    }
 
     const webhookEvent = await this.webhookEventRepository.create({
       eventType: eventType ?? 'payment_pending',
       payload: payload as unknown as Record<string, unknown>,
     });
+
+    if (!eventType) return;
 
     try {
       await this.processEvent(payload);
@@ -129,13 +138,58 @@ export class ProcessWebhookUseCase {
       case 'payment.cancelled':
         await this.handlePaymentStatus(data, 'cancelled', 'cancelled');
         break;
+      case 'payment.pending':
+        await this.handlePaymentStatus(data, 'pending' as any, 'pending');
+        break;
+      case 'invoice.paid':
+        if (data.invoice_id && this.invoiceRepository) {
+          const inv = await this.invoiceRepository.findByExternalId(data.invoice_id);
+          if (inv) {
+            await this.invoiceRepository.updateStatus(inv.id, 'paid', data.paid_at ? new Date(data.paid_at) : new Date());
+          }
+        }
+        break;
+      case 'invoice.overdue':
+        if (data.invoice_id && this.invoiceRepository) {
+          const inv = await this.invoiceRepository.findByExternalId(data.invoice_id);
+          if (inv) {
+            await this.invoiceRepository.updateStatus(inv.id, 'overdue');
+          }
+        }
+        break;
+      case 'subscription.cancelled':
+        if (data.subscription_id && this.subscriptionRepository) {
+          const sub = await this.subscriptionRepository.findByExternalId(data.subscription_id);
+          if (sub) {
+            await this.subscriptionRepository.updateStatus(sub.id, 'cancelled');
+          }
+        }
+        break;
+      case 'subscription.past_due':
+        if (data.subscription_id && this.subscriptionRepository) {
+          const sub = await this.subscriptionRepository.findByExternalId(data.subscription_id);
+          if (sub) {
+            await this.subscriptionRepository.updateStatus(sub.id, 'past_due');
+          }
+        }
+        break;
+      case 'subscription.created':
+        if (data.subscription_id && this.subscriptionRepository) {
+          const sub = await this.subscriptionRepository.findByExternalId(data.subscription_id);
+          if (sub) {
+            await this.subscriptionRepository.updateStatus(sub.id, 'active');
+          }
+        }
+        break;
+      case 'subscription.active':
+        break;
     }
   }
 
   private async handlePaymentStatus(
     data: WebhookPayload['data'],
-    paymentStatus: 'approved' | 'refused' | 'refunded' | 'cancelled',
-    checkoutStatus: 'paid' | 'refused' | 'refunded' | 'cancelled',
+    paymentStatus: 'approved' | 'pending' | 'refused' | 'refunded' | 'cancelled',
+    checkoutStatus: 'paid' | 'pending' | 'refused' | 'refunded' | 'cancelled',
     paidAt?: Date
   ): Promise<void> {
     if (!data.checkout_id) return;

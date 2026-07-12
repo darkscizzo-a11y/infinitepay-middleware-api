@@ -61,8 +61,9 @@ export async function buildApp(): Promise<FastifyInstance> {
 
   // Security
   await app.register(fastifyHelmet, { global: true });
+  const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(',') ?? [];
   await app.register(fastifyCors, {
-    origin: process.env.ALLOWED_ORIGINS?.split(',') ?? '*',
+    origin: allowedOrigins.length > 0 ? allowedOrigins : ['https://meuinfinitepay.vercel.app'],
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE'],
   });
 
@@ -73,9 +74,11 @@ export async function buildApp(): Promise<FastifyInstance> {
   });
 
   // JWT
-  await app.register(fastifyJwt, {
-    secret: process.env.JWT_SECRET ?? 'change-me-in-production',
-  });
+  const jwtSecret = process.env.JWT_SECRET;
+  if (!jwtSecret || jwtSecret === 'change-me-in-production' || jwtSecret.length < 32) {
+    throw new Error('JWT_SECRET must be set to a strong secret (min 32 chars) in production');
+  }
+  await app.register(fastifyJwt, { secret: jwtSecret });
 
   // Swagger
   await app.register(fastifySwagger, {
@@ -124,10 +127,10 @@ export async function buildApp(): Promise<FastifyInstance> {
     ipClient.setCredentials(savedConfig.apiKey, savedConfig.clientId, savedConfig.clientSecret);
   }
 
-  const createCheckoutUC = new CreateCheckoutUseCase(checkoutRepo, customerRepo, paymentRepo, ipClient);
+  const createCheckoutUC = new CreateCheckoutUseCase(checkoutRepo, customerRepo, paymentRepo, ipClient, prisma);
   const getCheckoutUC = new GetCheckoutUseCase(checkoutRepo);
   const listCheckoutsUC = new ListCheckoutsUseCase(checkoutRepo);
-  const processWebhookUC = new ProcessWebhookUseCase(checkoutRepo, paymentRepo, webhookEventRepo);
+  const processWebhookUC = new ProcessWebhookUseCase(checkoutRepo, paymentRepo, webhookEventRepo, subscriptionInvoiceRepo, subscriptionRepo);
 
   const checkoutCtrl = new CheckoutController(createCheckoutUC, getCheckoutUC, listCheckoutsUC);
   const webhookCtrl = new WebhookController(processWebhookUC);

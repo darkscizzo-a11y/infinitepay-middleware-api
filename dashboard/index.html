@@ -274,6 +274,12 @@ tr:hover td { background: #f1f5f9; }
 <script>
 const API = window.location.origin;
 
+function esc(str) {
+  const d = document.createElement('div');
+  d.textContent = str ?? '';
+  return d.innerHTML;
+}
+
 function getToken() { return localStorage.getItem('ip_token'); }
 function setToken(t) { localStorage.setItem('ip_token', t); }
 function clearToken() { localStorage.removeItem('ip_token'); }
@@ -382,7 +388,8 @@ async function loadHome() {
     let html = '<tr><th>ID</th><th>Cliente</th><th>Valor</th><th>Status</th></tr>';
     (Array.isArray(items) ? items : []).slice(0, 5).forEach(co => {
       const cust = co.customer || {};
-      html += `<tr><td style="font-family:monospace;font-size:11px">${(co.id || '').slice(0,8)}</td><td>${cust.name || '-'}</td><td>R$ ${(co.amount || 0).toFixed(2)}</td><td><span class="badge badge-${co.status === 'completed' ? 'success' : co.status === 'pending' ? 'warning' : 'neutral'}">${co.status || '-'}</span></td></tr>`;
+      const statusClass = co.status === 'completed' ? 'success' : co.status === 'pending' ? 'warning' : 'neutral';
+      html += `<tr><td style="font-family:monospace;font-size:11px">${esc((co.id || '').slice(0,8))}</td><td>${esc(cust.name) || '-'}</td><td>R$ ${(co.amount || 0).toFixed(2)}</td><td><span class="badge badge-${statusClass}">${esc(co.status) || '-'}</span></td></tr>`;
     });
     if ((Array.isArray(items) ? items : []).length === 0) html += '<tr><td colspan="4" class="empty-state">Nenhum checkout encontrado</td></tr>';
     tbody.innerHTML = html;
@@ -393,7 +400,8 @@ async function loadHome() {
     const items = p.data || p || [];
     let html = '<tr><th>ID</th><th>Valor</th><th>Status</th></tr>';
     (Array.isArray(items) ? items : []).slice(0, 5).forEach(pm => {
-      html += `<tr><td style="font-family:monospace;font-size:11px">${(pm.id || '').slice(0,8)}</td><td>R$ ${(pm.amount || 0).toFixed(2)}</td><td><span class="badge badge-${pm.status === 'approved' ? 'success' : pm.status === 'pending' ? 'warning' : pm.status === 'refused' ? 'danger' : 'neutral'}">${pm.status || '-'}</span></td></tr>`;
+      const statusClass = pm.status === 'approved' ? 'success' : pm.status === 'pending' ? 'warning' : pm.status === 'refused' ? 'danger' : 'neutral';
+      html += `<tr><td style="font-family:monospace;font-size:11px">${esc((pm.id || '').slice(0,8))}</td><td>R$ ${(pm.amount || 0).toFixed(2)}</td><td><span class="badge badge-${statusClass}">${esc(pm.status) || '-'}</span></td></tr>`;
     });
     if ((Array.isArray(items) ? items : []).length === 0) html += '<tr><td colspan="3" class="empty-state">Nenhum pagamento encontrado</td></tr>';
     tbody.innerHTML = html;
@@ -418,12 +426,13 @@ async function loadCheckouts(pg) {
     items.forEach(co => {
       const cust = co.customer || {};
       const d = co.createdAt ? new Date(co.createdAt).toLocaleDateString('pt-BR') : '-';
-      html += `<tr><td style="font-family:monospace;font-size:11px">${(co.id || '').slice(0,8)}</td><td>${cust.name || '-'}</td><td>R$ ${(co.amount || 0).toFixed(2)}</td><td><span class="badge badge-${co.status === 'completed' ? 'success' : co.status === 'pending' ? 'warning' : 'neutral'}">${co.status || '-'}</span></td><td>${d}</td></tr>`;
+      const statusClass = co.status === 'completed' ? 'success' : co.status === 'pending' ? 'warning' : 'neutral';
+      html += `<tr><td style="font-family:monospace;font-size:11px">${esc((co.id || '').slice(0,8))}</td><td>${esc(cust.name) || '-'}</td><td>R$ ${(co.amount || 0).toFixed(2)}</td><td><span class="badge badge-${statusClass}">${esc(co.status) || '-'}</span></td><td>${esc(d)}</td></tr>`;
     });
     tbody.innerHTML = html;
     document.getElementById('checkoutsPagination').textContent = `Página ${checkoutsPage}`;
   } catch (e) {
-    tbody.innerHTML = `<tr><td colspan="5" class="empty-state">Erro: ${e.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="empty-state">Erro: ${esc(e.message)}</td></tr>`;
   }
 }
 
@@ -448,15 +457,15 @@ async function createCheckout() {
       method: 'POST',
       body: JSON.stringify({
         customer: { name, email, document: doc || undefined },
-        items: [{ name: desc || 'Checkout', quantity: 1, price: Math.round(amount * 100) }],
-        amount: Math.round(amount * 100),
+        items: [{ name: desc || 'Checkout', quantity: 1, price: amount }],
+        amount,
         description: desc || undefined,
       }),
     });
     toast('Checkout criado com sucesso!');
     closeModal('checkoutModal');
     loadCheckouts(1);
-  } catch (e) { toast(e.message, 'error'); }
+  } catch (e) { toast(esc(e.message), 'error'); }
 }
 
 // ---------- Payments ----------
@@ -476,12 +485,13 @@ async function loadPayments(pg) {
     let html = '';
     items.forEach(pm => {
       const d = pm.createdAt ? new Date(pm.createdAt).toLocaleDateString('pt-BR') : '-';
-      html += `<tr><td style="font-family:monospace;font-size:11px">${(pm.id || '').slice(0,8)}</td><td>R$ ${(pm.amount || 0).toFixed(2)}</td><td>${pm.paymentMethod || pm.method || '-'}</td><td><span class="badge badge-${pm.status === 'approved' ? 'success' : pm.status === 'pending' ? 'warning' : pm.status === 'refused' ? 'danger' : 'neutral'}">${pm.status || '-'}</span></td><td>${d}</td></tr>`;
+      const statusClass = pm.status === 'approved' ? 'success' : pm.status === 'pending' ? 'warning' : pm.status === 'refused' ? 'danger' : 'neutral';
+      html += `<tr><td style="font-family:monospace;font-size:11px">${esc((pm.id || '').slice(0,8))}</td><td>R$ ${(pm.amount || 0).toFixed(2)}</td><td>${esc(pm.paymentMethod || pm.method) || '-'}</td><td><span class="badge badge-${statusClass}">${esc(pm.status) || '-'}</span></td><td>${esc(d)}</td></tr>`;
     });
     tbody.innerHTML = html;
     document.getElementById('paymentsPagination').textContent = `Página ${paymentsPage}`;
   } catch (e) {
-    tbody.innerHTML = `<tr><td colspan="5" class="empty-state">Erro: ${e.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="5" class="empty-state">Erro: ${esc(e.message)}</td></tr>`;
   }
 }
 
@@ -504,12 +514,13 @@ async function loadSubscriptions(pg) {
       const cust = s.customer || {};
       const plan = s.plan || {};
       const d = s.next_due_date ? new Date(s.next_due_date).toLocaleDateString('pt-BR') : '-';
-      html += `<tr><td style="font-family:monospace;font-size:11px">${(s.id || '').slice(0,8)}</td><td>${cust.name || '-'}</td><td>${plan.name || '-'}</td><td>R$ ${(s.amount || plan.amount || 0).toFixed(2)}</td><td><span class="badge badge-${s.status === 'active' ? 'success' : s.status === 'past_due' ? 'danger' : s.status === 'pending' ? 'warning' : 'neutral'}">${s.status || '-'}</span></td><td>${d}</td></tr>`;
+      const statusClass = s.status === 'active' ? 'success' : s.status === 'past_due' ? 'danger' : s.status === 'pending' ? 'warning' : 'neutral';
+      html += `<tr><td style="font-family:monospace;font-size:11px">${esc((s.id || '').slice(0,8))}</td><td>${esc(cust.name) || '-'}</td><td>${esc(plan.name) || '-'}</td><td>R$ ${(s.amount || plan.amount || 0).toFixed(2)}</td><td><span class="badge badge-${statusClass}">${esc(s.status) || '-'}</span></td><td>${esc(d)}</td></tr>`;
     });
     tbody.innerHTML = html;
     document.getElementById('subscriptionsPagination').textContent = `Página ${subsPage}`;
   } catch (e) {
-    tbody.innerHTML = `<tr><td colspan="6" class="empty-state">Erro: ${e.message}</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="6" class="empty-state">Erro: ${esc(e.message)}</td></tr>`;
   }
 }
 
@@ -525,7 +536,7 @@ async function showCreateSubscription() {
   try {
     const data = await api('/api/v1/recurrence/plans?status=active');
     const plans = data.data || [];
-    sel.innerHTML = '<option value="">Selecione um plano</option>' + plans.map(p => `<option value="${p.id}">${p.name} - R$ ${(p.amount || 0).toFixed(2)}</option>`).join('');
+    sel.innerHTML = '<option value="">Selecione um plano</option>' + plans.map(p => `<option value="${esc(p.id)}">${esc(p.name)} - R$ ${(p.amount || 0).toFixed(2)}</option>`).join('');
     if (plans.length === 0) sel.innerHTML = '<option value="">Nenhum plano ativo disponível</option>';
   } catch (e) {
     sel.innerHTML = '<option value="">Erro ao carregar planos</option>';
@@ -553,7 +564,7 @@ async function createSubscription() {
     toast('Assinatura criada com sucesso!');
     closeModal('subModal');
     loadSubscriptions(1);
-  } catch (e) { toast(e.message, 'error'); }
+  } catch (e) { toast(esc(e.message), 'error'); }
 }
 
 // ---------- Settings ----------
@@ -584,7 +595,7 @@ async function saveSettings() {
     });
     toast('Configurações salvas com sucesso!');
     loadSettings();
-  } catch (e) { toast(e.message, 'error'); }
+  } catch (e) { toast(esc(e.message), 'error'); }
   finally { btn.textContent = 'Salvar'; btn.disabled = false; }
 }
 </script>

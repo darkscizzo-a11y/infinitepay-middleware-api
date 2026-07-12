@@ -86,7 +86,7 @@ model Checkout {
   id         String         @id @default(uuid())
   customerId String         @map("customer_id")
   externalId String?        @unique @map("external_id")
-  amount     Float
+  amount     Int
   status     CheckoutStatus @default(pending)
   paymentUrl String?        @map("payment_url")
   description String?
@@ -100,6 +100,7 @@ model Checkout {
 
   @@index([status])
   @@index([createdAt])
+  @@index([customerId])
   @@map("checkouts")
 }
 
@@ -108,7 +109,7 @@ model CheckoutItem {
   checkoutId String  @map("checkout_id")
   name       String
   quantity   Int
-  price      Float
+  price      Int
 
   checkout Checkout @relation(fields: [checkoutId], references: [id], onDelete: Cascade)
 
@@ -120,15 +121,16 @@ model Payment {
   checkoutId String        @map("checkout_id")
   externalId String?       @unique @map("external_id")
   status     PaymentStatus @default(pending)
-  amount     Float
+  amount     Int
   paidAt     DateTime?     @map("paid_at")
   createdAt  DateTime      @default(now()) @map("created_at")
 
-  checkout      Checkout       @relation(fields: [checkoutId], references: [id])
+  checkout      Checkout            @relation(fields: [checkoutId], references: [id])
   webhookEvents WebhookEvent[]
   invoices      SubscriptionInvoice[]
 
   @@index([status])
+  @@index([checkoutId])
   @@map("payments")
 }
 
@@ -137,7 +139,7 @@ model RecurrencePlan {
   externalId  String?              @unique @map("external_id")
   name        String
   description String?
-  amount      Float
+  amount      Int
   interval    BillingInterval
   status      RecurrencePlanStatus @default(active)
   metadata    Json?
@@ -177,7 +179,7 @@ model SubscriptionInvoice {
   externalId     String?       @unique @map("external_id")
   subscriptionId String        @map("subscription_id")
   paymentId      String?       @map("payment_id")
-  amount         Float
+  amount         Int
   status         InvoiceStatus @default(pending)
   dueDate        DateTime      @map("due_date")
   paidAt         DateTime?     @map("paid_at")
@@ -189,6 +191,7 @@ model SubscriptionInvoice {
 
   @@index([status])
   @@index([dueDate])
+  @@index([subscriptionId])
   @@map("subscription_invoices")
 }
 
@@ -205,16 +208,6 @@ model WebhookEvent {
   @@index([eventType])
   @@index([processed])
   @@map("webhook_events")
-}
-
-model ApiKey {
-  id        String   @id @default(uuid())
-  name      String
-  key       String   @unique
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now()) @map("created_at")
-
-  @@map("api_keys")
 }
 
 model GatewayConfig {

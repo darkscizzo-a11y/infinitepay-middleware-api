@@ -15,7 +15,11 @@ export class WebhookController {
 
   private validateSignature(request: FastifyRequest): void {
     const secret = process.env.INFINITEPAY_WEBHOOK_SECRET;
-    if (!secret) return; // Skip in development
+    if (!secret) {
+      const env = process.env.NODE_ENV ?? 'development';
+      if (env === 'production') throw new UnauthorizedError('INFINITEPAY_WEBHOOK_SECRET not configured');
+      return;
+    }
 
     const signature = request.headers['x-infinitepay-signature'] as string;
     if (!signature) throw new UnauthorizedError('Missing webhook signature');

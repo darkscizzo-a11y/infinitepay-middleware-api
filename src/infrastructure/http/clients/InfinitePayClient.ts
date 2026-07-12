@@ -50,9 +50,9 @@ export class InfinitePayClient {
       items: payload.items.map((item) => ({
         name: item.name,
         quantity: item.quantity,
-        unit_price: Math.round(item.unit_price * 100),
+        unit_price: item.unit_price,
       })),
-      amount: Math.round(payload.amount * 100),
+      amount: payload.amount,
       description: payload.description,
     });
     return data;
