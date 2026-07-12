@@ -1,4 +1,7 @@
 {
+  "redirects": [
+    { "source": "/", "destination": "/swagger", "permanent": false }
+  ],
   "rewrites": [
     { "source": "/(.*)", "destination": "/api/index" }
   ]
