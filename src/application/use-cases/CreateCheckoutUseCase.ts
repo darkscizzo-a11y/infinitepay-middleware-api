@@ -23,14 +23,14 @@ export class CreateCheckoutUseCase {
     }));
 
     return this.prisma.$transaction(async (tx) => {
-      const customer = await this.customerRepository.findOrCreate(dto.customer);
+      const customer = await this.customerRepository.findOrCreate(dto.customer, tx);
 
       const checkout = await this.checkoutRepository.create({
         customerId: customer.id,
         amount: amountInCents,
         description: dto.description,
         items: itemsInCents,
-      });
+      }, tx);
 
       const ipCheckout = await this.infinitePayClient.createCheckout({
         customer: dto.customer,
@@ -47,13 +47,14 @@ export class CreateCheckoutUseCase {
         checkout.id,
         'pending',
         ipCheckout.id,
-        ipCheckout.payment_url
+        ipCheckout.payment_url,
+        tx
       );
 
       await this.paymentRepository.create({
         checkoutId: updated.id,
         amount: amountInCents,
-      });
+      }, tx);
 
       return {
         id: updated.id,

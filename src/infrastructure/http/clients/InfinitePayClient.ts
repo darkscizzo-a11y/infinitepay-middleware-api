@@ -27,7 +27,7 @@ export class InfinitePayClient {
         'Authorization': `Bearer ${process.env.INFINITEPAY_API_KEY ?? ''}`,
         'X-Client-ID': process.env.INFINITEPAY_CLIENT_ID ?? '',
       },
-      timeout: 15000,
+      timeout: Number(process.env.INFINITEPAY_TIMEOUT_MS ?? 30000),
     });
 
     this.client.interceptors.response.use(

@@ -13,7 +13,7 @@ export const paginationSchema = z.object({
 export const createRecurrencePlanSchema = z.object({
   name: z.string().min(2).max(120),
   description: z.string().max(500).optional(),
-  amount: z.number().positive(),
+  amount: z.number().positive().finite(),
   interval: z.enum(['daily', 'weekly', 'monthly', 'quarterly', 'yearly']),
   externalId: z.string().max(120).optional(),
   metadata: z.record(z.unknown()).optional(),
@@ -53,7 +53,7 @@ export const listSubscriptionInvoicesSchema = paginationSchema.extend({
 
 export const createSubscriptionInvoiceSchema = z.object({
   subscriptionId: z.string().uuid(),
-  amount: z.number().positive().optional(),
+  amount: z.number().positive().finite().optional(),
   dueDate: z.string().datetime(),
   externalId: z.string().max(120).optional(),
   paymentId: z.string().uuid().optional(),

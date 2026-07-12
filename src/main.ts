@@ -3,18 +3,17 @@ import { buildApp } from './infrastructure/config/app';
 
 let shuttingDown = false;
 
-async function gracefulShutdown(signal: string, app: Awaited<ReturnType<typeof buildApp>>): Promise<void> {
+function gracefulShutdown(signal: string, app: Awaited<ReturnType<typeof buildApp>>): void {
   if (shuttingDown) return;
   shuttingDown = true;
   console.log(`\n${signal} received. Shutting down gracefully...`);
-  try {
-    await app.close();
+  app.close().then(() => {
     console.log('Server closed.');
     process.exit(0);
-  } catch (err) {
+  }).catch((err) => {
     console.error('Error during shutdown:', err);
     process.exit(1);
-  }
+  });
 }
 
 async function main(): Promise<void> {

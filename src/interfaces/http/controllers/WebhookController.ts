@@ -23,6 +23,7 @@ export class WebhookController {
 
     const signature = request.headers['x-infinitepay-signature'] as string;
     if (!signature) throw new UnauthorizedError('Missing webhook signature');
+    if (!request.body) throw new UnauthorizedError('Empty webhook body');
 
     const payload = JSON.stringify(request.body);
     const expected = crypto.createHmac('sha256', secret).update(payload).digest('hex');

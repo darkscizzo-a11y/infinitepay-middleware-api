@@ -1,14 +1,19 @@
 // src/infrastructure/database/repositories/CheckoutRepository.ts
 import { PrismaClient } from '@prisma/client';
-import { ICheckoutRepository, CreateCheckoutData } from '../../../domain/repositories/index';
+import { ICheckoutRepository, CreateCheckoutData, TxClient } from '../../../domain/repositories/index';
 import { Checkout, CheckoutStatus } from '../../../domain/entities/index';
 import { PaginatedResult, FilterParams } from '../../../shared/types';
 
 export class CheckoutRepository implements ICheckoutRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
-  async create(data: CreateCheckoutData): Promise<Checkout> {
-    const checkout = await this.prisma.checkout.create({
+  private prismaClient(tx?: TxClient): PrismaClient {
+    return (tx ?? this.prisma) as unknown as PrismaClient;
+  }
+
+  async create(data: CreateCheckoutData, tx?: TxClient): Promise<Checkout> {
+    const prisma = this.prismaClient(tx);
+    const checkout = await prisma.checkout.create({
       data: {
         customerId: data.customerId,
         amount: data.amount,
@@ -83,9 +88,11 @@ export class CheckoutRepository implements ICheckoutRepository {
     id: string,
     status: CheckoutStatus,
     externalId?: string,
-    paymentUrl?: string
+    paymentUrl?: string,
+    tx?: TxClient
   ): Promise<Checkout> {
-    const checkout = await this.prisma.checkout.update({
+    const prisma = this.prismaClient(tx);
+    const checkout = await prisma.checkout.update({
       where: { id },
       data: { status, externalId, paymentUrl },
       include: { customer: true, items: true },

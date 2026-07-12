@@ -70,8 +70,7 @@ export class RecurrenceController {
       });
     }
 
-    const created = await this.subscriptionRepository.updateStatus(subscription.id, 'active');
-    reply.status(201).send(this.serializeSubscription(created));
+    reply.status(201).send(this.serializeSubscription(subscription));
   }
 
   async listSubscriptions(request: FastifyRequest, reply: FastifyReply): Promise<void> {

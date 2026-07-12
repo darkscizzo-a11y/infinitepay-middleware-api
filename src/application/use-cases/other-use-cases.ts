@@ -198,7 +198,7 @@ export class ProcessWebhookUseCase {
     if (!checkout) return;
 
     const payments = await this.paymentRepository.findByCheckoutId(checkout.id);
-    const payment = payments[0];
+    const payment = payments?.[0];
     if (payment) {
       await this.paymentRepository.updateStatus(payment.id, paymentStatus, paidAt);
     }

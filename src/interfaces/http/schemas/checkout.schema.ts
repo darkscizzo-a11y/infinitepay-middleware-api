@@ -12,11 +12,11 @@ export const createCheckoutSchema = z.object({
       z.object({
         name: z.string().min(1).max(200),
         quantity: z.number().int().positive(),
-        price: z.number().positive(),
+        price: z.number().positive().finite(),
       })
     )
     .min(1),
-  amount: z.number().positive(),
+  amount: z.number().positive().finite(),
   description: z.string().max(500).optional(),
 });
 

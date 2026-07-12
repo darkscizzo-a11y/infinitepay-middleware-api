@@ -79,6 +79,8 @@ model Customer {
   subscriptions Subscription[]
 
   @@unique([email, document])
+  @@index([email])
+  @@index([document])
   @@map("customers")
 }
 
@@ -171,6 +173,8 @@ model Subscription {
 
   @@index([status])
   @@index([nextDueDate])
+  @@index([planId])
+  @@index([customerId])
   @@map("subscriptions")
 }
 

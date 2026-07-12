@@ -1,10 +1,16 @@
 // src/interfaces/http/routes/index.ts
 import { FastifyInstance } from 'fastify';
+import { z } from 'zod';
 import { CheckoutController } from '../controllers/CheckoutController';
 import { WebhookController } from '../controllers/WebhookController';
 import { PaymentController } from '../controllers/PaymentController';
 import { RecurrenceController } from '../controllers/RecurrenceController';
 import { SettingsController } from '../controllers/SettingsController';
+
+const loginSchema = z.object({
+  username: z.string().min(1),
+  password: z.string().min(1),
+});
 
 export function registerRoutes(
   app: FastifyInstance,
@@ -29,10 +35,10 @@ export function registerRoutes(
 
   // Auth (unauthenticated)
   app.post('/api/v1/auth/login', async (request, reply) => {
-    const { username, password } = request.body as { username?: string; password?: string };
+    const { username, password } = loginSchema.parse(request.body);
     const validUser = process.env.DASHBOARD_USERNAME ?? 'admin';
     const validPass = process.env.DASHBOARD_PASSWORD ?? 'admin123';
-    if (!username || !password || username !== validUser || password !== validPass) {
+    if (username !== validUser || password !== validPass) {
       return reply.status(401).send({ error: 'Invalid credentials', code: 'INVALID_CREDENTIALS' });
     }
     const token = await reply.jwtSign({ role: 'admin' }, { expiresIn: '24h' });

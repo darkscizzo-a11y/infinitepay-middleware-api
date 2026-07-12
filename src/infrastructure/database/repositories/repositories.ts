@@ -18,6 +18,7 @@ import {
   ListSubscriptionInvoicesFilters,
   ListSubscriptionsFilters,
   SubscriptionDashboard,
+  TxClient,
 } from '../../../domain/repositories/index';
 import {
   Customer,
@@ -36,13 +37,18 @@ import { PaginatedResult, FilterParams } from '../../../shared/types';
 export class CustomerRepository implements ICustomerRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
-  async findOrCreate(data: CreateCustomerData): Promise<Customer> {
-    const existing = await this.prisma.customer.findFirst({
+  private prismaClient(tx?: TxClient): PrismaClient {
+    return (tx ?? this.prisma) as unknown as PrismaClient;
+  }
+
+  async findOrCreate(data: CreateCustomerData, tx?: TxClient): Promise<Customer> {
+    const prisma = this.prismaClient(tx);
+    const existing = await prisma.customer.findFirst({
       where: { email: data.email, document: data.document },
     });
     if (existing) return existing;
 
-    return this.prisma.customer.create({ data });
+    return prisma.customer.create({ data });
   }
 
   async findById(id: string): Promise<Customer | null> {
@@ -58,8 +64,13 @@ export class CustomerRepository implements ICustomerRepository {
 export class PaymentRepository implements IPaymentRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
-  async create(data: CreatePaymentData): Promise<Payment> {
-    return this.prisma.payment.create({ data });
+  private prismaClient(tx?: TxClient): PrismaClient {
+    return (tx ?? this.prisma) as unknown as PrismaClient;
+  }
+
+  async create(data: CreatePaymentData, tx?: TxClient): Promise<Payment> {
+    const prisma = this.prismaClient(tx);
+    return prisma.payment.create({ data });
   }
 
   async findById(id: string): Promise<Payment | null> {
@@ -437,24 +448,20 @@ export class GatewayConfigRepository implements IGatewayConfigRepository {
   constructor(private readonly prisma: PrismaClient) {}
 
   async get(): Promise<GatewayConfig | null> {
-    const config = await (this.prisma as any).gatewayConfig.findFirst();
+    const config = await this.prisma.gatewayConfig.findFirst();
     return config as GatewayConfig | null;
   }
 
-  async upsert(data: { apiKey: string; clientId: string; clientSecret: string; webhookSecret: string }): Promise<GatewayConfig> {
-    const existing = await (this.prisma as any).gatewayConfig.findFirst();
-    if (existing) {
-      return (this.prisma as any).gatewayConfig.update({
-        where: { id: existing.id },
-        data,
-      }) as Promise<GatewayConfig>;
-    }
-    const created = await (this.prisma as any).gatewayConfig.create({ data }) as Promise<GatewayConfig>;
-    const verify = await (this.prisma as any).gatewayConfig.findMany();
-    if (verify.length > 1) {
-      const sorted = verify.sort((a: any, b: any) => a.createdAt - b.createdAt);
-      await (this.prisma as any).gatewayConfig.deleteMany({ where: { id: { not: sorted[0].id } } });
-    }
-    return created;
+  async upsert(data: { apiKey: string; clientId: string; clientSecret: string; webhookSecret: string }, tx?: TxClient): Promise<GatewayConfig> {
+    const client: any = tx ?? this.prisma;
+    const doUpsert = async (c: any) => {
+      const existing = await c.gatewayConfig.findFirst();
+      if (existing) {
+        return c.gatewayConfig.update({ where: { id: existing.id }, data });
+      }
+      return c.gatewayConfig.create({ data });
+    };
+    if (tx) return doUpsert(tx);
+    return (this.prisma as any).$transaction((t: any) => doUpsert(t), { isolationLevel: 'Serializable' });
   }
 }

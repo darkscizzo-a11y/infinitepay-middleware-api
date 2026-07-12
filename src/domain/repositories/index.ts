@@ -1,4 +1,5 @@
 // src/domain/repositories/ICheckoutRepository.ts
+import { Prisma } from '@prisma/client';
 import {
   BillingInterval,
   Checkout,
@@ -18,6 +19,8 @@ import {
 } from '../entities/index';
 import { PaginatedResult, FilterParams } from '../../shared/types';
 
+export type TxClient = Prisma.TransactionClient;
+
 export interface CreateCheckoutData {
   customerId: string;
   amount: number;
@@ -27,11 +30,11 @@ export interface CreateCheckoutData {
 }
 
 export interface ICheckoutRepository {
-  create(data: CreateCheckoutData): Promise<Checkout>;
+  create(data: CreateCheckoutData, tx?: TxClient): Promise<Checkout>;
   findById(id: string): Promise<Checkout | null>;
   findByExternalId(externalId: string): Promise<Checkout | null>;
   findAll(filters: FilterParams): Promise<PaginatedResult<Checkout>>;
-  updateStatus(id: string, status: CheckoutStatus, externalId?: string, paymentUrl?: string): Promise<Checkout>;
+  updateStatus(id: string, status: CheckoutStatus, externalId?: string, paymentUrl?: string, tx?: TxClient): Promise<Checkout>;
 }
 
 // src/domain/repositories/ICustomerRepository.ts
@@ -42,7 +45,7 @@ export interface CreateCustomerData {
 }
 
 export interface ICustomerRepository {
-  findOrCreate(data: CreateCustomerData): Promise<Customer>;
+  findOrCreate(data: CreateCustomerData, tx?: TxClient): Promise<Customer>;
   findById(id: string): Promise<Customer | null>;
   findByEmail(email: string): Promise<Customer | null>;
 }
@@ -55,7 +58,7 @@ export interface CreatePaymentData {
 }
 
 export interface IPaymentRepository {
-  create(data: CreatePaymentData): Promise<Payment>;
+  create(data: CreatePaymentData, tx?: TxClient): Promise<Payment>;
   findById(id: string): Promise<Payment | null>;
   findByCheckoutId(checkoutId: string): Promise<Payment[]>;
   findAll(filters: FilterParams): Promise<PaginatedResult<Payment>>;
@@ -179,5 +182,5 @@ export interface IWebhookEventRepository {
 // src/domain/repositories/IGatewayConfigRepository.ts
 export interface IGatewayConfigRepository {
   get(): Promise<GatewayConfig | null>;
-  upsert(data: Omit<GatewayConfig, 'id' | 'createdAt' | 'updatedAt'>): Promise<GatewayConfig>;
+  upsert(data: Omit<GatewayConfig, 'id' | 'createdAt' | 'updatedAt'>, tx?: TxClient): Promise<GatewayConfig>;
 }
