@@ -1,0 +1,218 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum CheckoutStatus {
+  pending
+  paid
+  cancelled
+  refunded
+  refused
+}
+
+enum PaymentStatus {
+  pending
+  approved
+  refused
+  refunded
+  cancelled
+}
+
+enum WebhookEventType {
+  payment_pending
+  payment_approved
+  payment_refused
+  payment_refunded
+  payment_cancelled
+  subscription_created
+  subscription_active
+  subscription_cancelled
+  subscription_past_due
+  invoice_paid
+  invoice_overdue
+}
+
+enum BillingInterval {
+  daily
+  weekly
+  monthly
+  quarterly
+  yearly
+}
+
+enum RecurrencePlanStatus {
+  active
+  inactive
+}
+
+enum SubscriptionStatus {
+  pending
+  active
+  past_due
+  cancelled
+  expired
+}
+
+enum InvoiceStatus {
+  pending
+  paid
+  overdue
+  cancelled
+  refused
+}
+
+model Customer {
+  id        String   @id @default(uuid())
+  name      String
+  email     String
+  document  String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  checkouts     Checkout[]
+  subscriptions Subscription[]
+
+  @@unique([email, document])
+  @@map("customers")
+}
+
+model Checkout {
+  id         String         @id @default(uuid())
+  customerId String         @map("customer_id")
+  externalId String?        @unique @map("external_id")
+  amount     Float
+  status     CheckoutStatus @default(pending)
+  paymentUrl String?        @map("payment_url")
+  description String?
+  metadata   Json?
+  createdAt  DateTime       @default(now()) @map("created_at")
+  updatedAt  DateTime       @updatedAt @map("updated_at")
+
+  customer Customer  @relation(fields: [customerId], references: [id])
+  items    CheckoutItem[]
+  payments Payment[]
+
+  @@index([status])
+  @@index([createdAt])
+  @@map("checkouts")
+}
+
+model CheckoutItem {
+  id         String  @id @default(uuid())
+  checkoutId String  @map("checkout_id")
+  name       String
+  quantity   Int
+  price      Float
+
+  checkout Checkout @relation(fields: [checkoutId], references: [id], onDelete: Cascade)
+
+  @@map("checkout_items")
+}
+
+model Payment {
+  id         String        @id @default(uuid())
+  checkoutId String        @map("checkout_id")
+  externalId String?       @unique @map("external_id")
+  status     PaymentStatus @default(pending)
+  amount     Float
+  paidAt     DateTime?     @map("paid_at")
+  createdAt  DateTime      @default(now()) @map("created_at")
+
+  checkout      Checkout       @relation(fields: [checkoutId], references: [id])
+  webhookEvents WebhookEvent[]
+  invoices      SubscriptionInvoice[]
+
+  @@index([status])
+  @@map("payments")
+}
+
+model RecurrencePlan {
+  id          String               @id @default(uuid())
+  externalId  String?              @unique @map("external_id")
+  name        String
+  description String?
+  amount      Float
+  interval    BillingInterval
+  status      RecurrencePlanStatus @default(active)
+  metadata    Json?
+  createdAt   DateTime             @default(now()) @map("created_at")
+  updatedAt   DateTime             @updatedAt @map("updated_at")
+
+  subscriptions Subscription[]
+
+  @@index([status])
+  @@map("recurrence_plans")
+}
+
+model Subscription {
+  id          String             @id @default(uuid())
+  externalId  String?            @unique @map("external_id")
+  planId      String             @map("plan_id")
+  customerId  String             @map("customer_id")
+  status      SubscriptionStatus @default(pending)
+  startedAt   DateTime           @default(now()) @map("started_at")
+  nextDueDate DateTime           @map("next_due_date")
+  cancelledAt DateTime?          @map("cancelled_at")
+  metadata    Json?
+  createdAt   DateTime           @default(now()) @map("created_at")
+  updatedAt   DateTime           @updatedAt @map("updated_at")
+
+  plan     RecurrencePlan        @relation(fields: [planId], references: [id])
+  customer Customer              @relation(fields: [customerId], references: [id])
+  invoices SubscriptionInvoice[]
+
+  @@index([status])
+  @@index([nextDueDate])
+  @@map("subscriptions")
+}
+
+model SubscriptionInvoice {
+  id             String        @id @default(uuid())
+  externalId     String?       @unique @map("external_id")
+  subscriptionId String        @map("subscription_id")
+  paymentId      String?       @map("payment_id")
+  amount         Float
+  status         InvoiceStatus @default(pending)
+  dueDate        DateTime      @map("due_date")
+  paidAt         DateTime?     @map("paid_at")
+  createdAt      DateTime      @default(now()) @map("created_at")
+  updatedAt      DateTime      @updatedAt @map("updated_at")
+
+  subscription Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  payment      Payment?     @relation(fields: [paymentId], references: [id])
+
+  @@index([status])
+  @@index([dueDate])
+  @@map("subscription_invoices")
+}
+
+model WebhookEvent {
+  id        String           @id @default(uuid())
+  paymentId String?          @map("payment_id")
+  eventType WebhookEventType @map("event_type")
+  payload   Json
+  processed Boolean          @default(false)
+  createdAt DateTime         @default(now()) @map("created_at")
+
+  payment Payment? @relation(fields: [paymentId], references: [id])
+
+  @@index([eventType])
+  @@index([processed])
+  @@map("webhook_events")
+}
+
+model ApiKey {
+  id        String   @id @default(uuid())
+  name      String
+  key       String   @unique
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("api_keys")
+}

@@ -1,0 +1,116 @@
+{
+  "info": {
+    "name": "InfinitePay Middleware API",
+    "description": "Coleção completa da API intermediária para InfinitePay",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.0.0"
+  },
+  "variable": [
+    { "key": "baseUrl", "value": "http://localhost:3000", "type": "string" },
+    { "key": "token", "value": "", "type": "string" }
+  ],
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "url": "{{baseUrl}}/health"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Checkouts",
+      "item": [
+        {
+          "name": "Criar Checkout",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Authorization", "value": "Bearer {{token}}" },
+              { "key": "Content-Type", "value": "application/json" }
+            ],
+            "url": "{{baseUrl}}/api/v1/checkouts",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"customer\": {\n    \"name\": \"João Silva\",\n    \"email\": \"joao@email.com\",\n    \"document\": \"12345678900\"\n  },\n  \"items\": [\n    {\n      \"name\": \"Produto Teste\",\n      \"quantity\": 1,\n      \"price\": 100\n    }\n  ],\n  \"amount\": 100,\n  \"description\": \"Pedido #123\"\n}"
+            }
+          }
+        },
+        {
+          "name": "Listar Checkouts",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/checkouts?page=1&limit=20&orderBy=createdAt&orderDir=desc",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "checkouts"],
+              "query": [
+                { "key": "page", "value": "1" },
+                { "key": "limit", "value": "20" },
+                { "key": "status", "value": "", "disabled": true },
+                { "key": "startDate", "value": "", "disabled": true },
+                { "key": "endDate", "value": "", "disabled": true },
+                { "key": "orderBy", "value": "createdAt" },
+                { "key": "orderDir", "value": "desc" }
+              ]
+            }
+          }
+        },
+        {
+          "name": "Consultar Checkout por ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/v1/checkouts/{{checkoutId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Payments",
+      "item": [
+        {
+          "name": "Listar Pagamentos",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/v1/payments?page=1&limit=20"
+          }
+        },
+        {
+          "name": "Consultar Pagamento por ID",
+          "request": {
+            "method": "GET",
+            "header": [{ "key": "Authorization", "value": "Bearer {{token}}" }],
+            "url": "{{baseUrl}}/api/v1/payments/{{paymentId}}"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Webhooks",
+      "item": [
+        {
+          "name": "Simular Webhook - Pagamento Aprovado",
+          "request": {
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "x-infinitepay-signature", "value": "sha256=your-test-signature" }
+            ],
+            "url": "{{baseUrl}}/api/v1/webhooks/infinitepay",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"event\": \"payment.approved\",\n  \"data\": {\n    \"id\": \"pay_test123\",\n    \"checkout_id\": \"co_test123\",\n    \"status\": \"approved\",\n    \"amount\": 100,\n    \"paid_at\": \"2026-01-01T12:00:00Z\"\n  }\n}"
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

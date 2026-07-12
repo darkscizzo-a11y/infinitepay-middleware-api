@@ -1,0 +1,441 @@
+openapi: 3.1.0
+info:
+  title: InfinitePay Middleware API
+  description: |
+    API intermediária para integração com a InfinitePay.
+    Abstrai as regras do gateway e expõe uma interface padronizada para ERPs, CRMs, E-commerces e SaaS.
+  version: 1.0.0
+  contact:
+    name: Suporte Técnico
+    email: suporte@seudominio.com.br
+
+servers:
+  - url: http://localhost:3000
+    description: Local
+  - url: https://api.seudominio.com.br
+    description: Produção
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    Customer:
+      type: object
+      required: [name, email, document]
+      properties:
+        name:
+          type: string
+          example: "João Silva"
+        email:
+          type: string
+          format: email
+          example: "joao@email.com"
+        document:
+          type: string
+          example: "12345678900"
+
+    CheckoutItem:
+      type: object
+      required: [name, quantity, price]
+      properties:
+        name:
+          type: string
+          example: "Produto Teste"
+        quantity:
+          type: integer
+          minimum: 1
+          example: 1
+        price:
+          type: number
+          format: float
+          example: 100.00
+
+    CreateCheckoutRequest:
+      type: object
+      required: [customer, items, amount]
+      properties:
+        customer:
+          $ref: '#/components/schemas/Customer'
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/CheckoutItem'
+          minItems: 1
+        amount:
+          type: number
+          format: float
+          example: 100.00
+        description:
+          type: string
+          example: "Pedido #123"
+
+    CheckoutResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, paid, cancelled, refunded, refused]
+        payment_url:
+          type: string
+          format: uri
+          nullable: true
+        amount:
+          type: number
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    PaymentResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        checkout_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [pending, approved, refused, refunded, cancelled]
+        amount:
+          type: number
+        paid_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+
+    WebhookPayload:
+      type: object
+      required: [event, data]
+      properties:
+        event:
+          type: string
+          enum: [payment.pending, payment.approved, payment.refused, payment.refunded, payment.cancelled]
+        data:
+          type: object
+          properties:
+            id:
+              type: string
+            checkout_id:
+              type: string
+            status:
+              type: string
+            amount:
+              type: number
+            paid_at:
+              type: string
+              format: date-time
+              nullable: true
+
+    PaginatedCheckouts:
+      type: object
+      properties:
+        data:
+          type: array
+          items:
+            $ref: '#/components/schemas/CheckoutResponse'
+        total:
+          type: integer
+        page:
+          type: integer
+        limit:
+          type: integer
+        totalPages:
+          type: integer
+
+    ErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        code:
+          type: string
+
+    ValidationErrorResponse:
+      type: object
+      properties:
+        error:
+          type: string
+        code:
+          type: string
+          example: VALIDATION_ERROR
+        details:
+          type: array
+          items:
+            type: object
+            properties:
+              field:
+                type: string
+              message:
+                type: string
+
+security:
+  - bearerAuth: []
+
+tags:
+  - name: health
+    description: Status da API
+  - name: checkouts
+    description: Gerenciamento de checkouts de pagamento
+  - name: payments
+    description: Consulta de pagamentos processados
+  - name: webhooks
+    description: Recepção de eventos da InfinitePay
+
+paths:
+  /health:
+    get:
+      summary: Health Check
+      tags: [health]
+      security: []
+      responses:
+        '200':
+          description: API operacional
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: ok
+                  timestamp:
+                    type: string
+                    format: date-time
+
+  /api/v1/checkouts:
+    post:
+      summary: Criar Checkout
+      tags: [checkouts]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateCheckoutRequest'
+            example:
+              customer:
+                name: "João Silva"
+                email: "joao@email.com"
+                document: "12345678900"
+              items:
+                - name: "Produto Teste"
+                  quantity: 1
+                  price: 100.00
+              amount: 100.00
+              description: "Pedido #123"
+      responses:
+        '201':
+          description: Checkout criado com sucesso
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckoutResponse'
+        '401':
+          description: Não autorizado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Erro de validação
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationErrorResponse'
+        '502':
+          description: Erro na InfinitePay
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    get:
+      summary: Listar Checkouts
+      tags: [checkouts]
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [pending, paid, cancelled, refunded, refused]
+        - in: query
+          name: startDate
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: endDate
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+        - in: query
+          name: orderBy
+          schema:
+            type: string
+            enum: [createdAt, amount, status]
+            default: createdAt
+        - in: query
+          name: orderDir
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+      responses:
+        '200':
+          description: Lista de checkouts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaginatedCheckouts'
+
+  /api/v1/checkouts/{id}:
+    get:
+      summary: Consultar Checkout por ID
+      tags: [checkouts]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Dados do checkout
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CheckoutResponse'
+        '404':
+          description: Checkout não encontrado
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /api/v1/payments:
+    get:
+      summary: Listar Pagamentos
+      tags: [payments]
+      parameters:
+        - in: query
+          name: status
+          schema:
+            type: string
+            enum: [pending, approved, refused, refunded, cancelled]
+        - in: query
+          name: page
+          schema:
+            type: integer
+            default: 1
+        - in: query
+          name: limit
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Lista de pagamentos
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/PaymentResponse'
+                  total:
+                    type: integer
+                  page:
+                    type: integer
+                  totalPages:
+                    type: integer
+
+  /api/v1/payments/{id}:
+    get:
+      summary: Consultar Pagamento por ID
+      tags: [payments]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Dados do pagamento
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PaymentResponse'
+        '404':
+          description: Pagamento não encontrado
+
+  /api/v1/webhooks/infinitepay:
+    post:
+      summary: Receber Webhook da InfinitePay
+      tags: [webhooks]
+      security: []
+      parameters:
+        - in: header
+          name: x-infinitepay-signature
+          required: true
+          schema:
+            type: string
+          description: Assinatura HMAC-SHA256 do payload
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/WebhookPayload'
+            examples:
+              approved:
+                summary: Pagamento aprovado
+                value:
+                  event: payment.approved
+                  data:
+                    id: pay_abc123
+                    checkout_id: co_xyz789
+                    status: approved
+                    amount: 100.00
+                    paid_at: "2026-01-01T12:00:00Z"
+      responses:
+        '200':
+          description: Evento recebido e processado
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  received:
+                    type: boolean
+        '401':
+          description: Assinatura inválida
