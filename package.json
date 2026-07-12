@@ -5,7 +5,7 @@
   "main": "dist/main.js",
   "scripts": {
     "dev": "tsx watch src/main.ts",
-    "build": "tsc --project tsconfig.build.json",
+    "build": "prisma generate && tsc --project tsconfig.build.json",
     "start": "node dist/main.js",
     "test": "vitest run",
     "test:watch": "vitest",
