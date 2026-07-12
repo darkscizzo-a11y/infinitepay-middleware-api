@@ -27,6 +27,18 @@ export function registerRoutes(
     reply.send({ status: 'ok', timestamp: new Date().toISOString() });
   });
 
+  // Auth (unauthenticated)
+  app.post('/api/v1/auth/login', async (request, reply) => {
+    const { username, password } = request.body as { username?: string; password?: string };
+    const validUser = process.env.DASHBOARD_USERNAME ?? 'admin';
+    const validPass = process.env.DASHBOARD_PASSWORD ?? 'admin123';
+    if (!username || !password || username !== validUser || password !== validPass) {
+      return reply.status(401).send({ error: 'Invalid credentials', code: 'INVALID_CREDENTIALS' });
+    }
+    const token = await reply.jwtSign({ role: 'admin' }, { expiresIn: '24h' });
+    reply.send({ token });
+  });
+
   // Authenticated routes
   app.register(
     async (api) => {

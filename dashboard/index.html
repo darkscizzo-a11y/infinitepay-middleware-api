@@ -1,0 +1,592 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>InfinitePay Middleware - Dashboard</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>⚡</text></svg>">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --primary: #7c3aed; --primary-dark: #6d28d9; --primary-light: #ede9fe;
+  --bg: #f8fafc; --surface: #ffffff; --sidebar: #1e293b;
+  --text: #1e293b; --text-muted: #94a3b8; --text-sidebar: #cbd5e1;
+  --border: #e2e8f0; --success: #10b981; --danger: #ef4444; --warning: #f59e0b;
+  --shadow: 0 1px 3px rgba(0,0,0,.1); --radius: 8px;
+}
+body {
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background: var(--bg); color: var(--text); min-height: 100vh;
+}
+a { color: var(--primary); text-decoration: none; }
+button {
+  cursor: pointer; border: none; font-size: 14px; border-radius: var(--radius);
+  padding: 8px 16px; font-weight: 500; transition: background .2s;
+}
+button:focus-visible { outline: 2px solid var(--primary); outline-offset: 2px; }
+input, select {
+  padding: 10px 12px; border: 1px solid var(--border); border-radius: var(--radius);
+  font-size: 14px; width: 100%; transition: border-color .2s;
+}
+input:focus, select:focus { outline: none; border-color: var(--primary); box-shadow: 0 0 0 3px var(--primary-light); }
+
+/* Login */
+.login-page { display: flex; align-items: center; justify-content: center; min-height: 100vh; padding: 20px; }
+.login-card {
+  background: var(--surface); border-radius: 12px; box-shadow: var(--shadow);
+  padding: 40px; width: 100%; max-width: 400px;
+}
+.login-card h1 { font-size: 24px; margin-bottom: 4px; }
+.login-card p { color: var(--text-muted); margin-bottom: 24px; font-size: 14px; }
+.login-card .form-group { margin-bottom: 16px; }
+.login-card label { display: block; font-size: 14px; font-weight: 500; margin-bottom: 6px; }
+.login-card button { width: 100%; padding: 12px; background: var(--primary); color: #fff; font-size: 16px; }
+.login-card button:hover { background: var(--primary-dark); }
+.login-error { color: var(--danger); font-size: 13px; margin-top: 8px; display: none; }
+
+/* Layout */
+.app-layout { display: none; min-height: 100vh; }
+.app-layout.active { display: flex; }
+.sidebar {
+  width: 240px; background: var(--sidebar); color: var(--text-sidebar);
+  padding: 20px 0; display: flex; flex-direction: column; position: fixed; top: 0; left: 0; bottom: 0;
+}
+.sidebar h2 { font-size: 16px; padding: 0 20px 16px; color: #fff; border-bottom: 1px solid #334155; margin-bottom: 8px; }
+.sidebar nav { flex: 1; overflow-y: auto; }
+.sidebar a {
+  display: flex; align-items: center; gap: 10px; padding: 10px 20px; color: var(--text-sidebar);
+  font-size: 14px; transition: background .2s;
+}
+.sidebar a:hover, .sidebar a.active { background: #334155; color: #fff; }
+.sidebar .logout-btn { margin: 8px 20px; padding: 10px; background: transparent; border: 1px solid #475569; color: var(--text-sidebar); font-size: 14px; text-align: center; }
+.sidebar .logout-btn:hover { background: #334155; color: #fff; }
+.main { margin-left: 240px; flex: 1; padding: 24px; min-height: 100vh; }
+.page { display: none; }
+.page.active { display: block; }
+
+/* Header per page */
+.page-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 24px; }
+.page-header h1 { font-size: 24px; font-weight: 700; }
+.page-header .actions { display: flex; gap: 8px; }
+.page-header button { background: var(--primary); color: #fff; }
+.page-header button:hover { background: var(--primary-dark); }
+.page-header button.secondary { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+.page-header button.secondary:hover { background: var(--bg); }
+
+/* KPI cards */
+.kpi-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 24px; }
+.kpi-card {
+  background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow);
+  padding: 20px; border-left: 4px solid var(--primary);
+}
+.kpi-card .label { font-size: 12px; text-transform: uppercase; color: var(--text-muted); letter-spacing: .5px; }
+.kpi-card .value { font-size: 28px; font-weight: 700; margin-top: 4px; }
+.kpi-card .sub { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+
+/* Tables */
+.table-container {
+  background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow); overflow-x: auto;
+}
+table { width: 100%; border-collapse: collapse; }
+th, td { padding: 12px 16px; text-align: left; font-size: 13px; }
+th { background: var(--bg); font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: .5px; }
+tr:not(:last-child) td { border-bottom: 1px solid var(--border); }
+tr:hover td { background: #f1f5f9; }
+.badge {
+  display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 11px; font-weight: 600; text-transform: capitalize;
+}
+.badge-success { background: #d1fae5; color: #065f46; }
+.badge-danger { background: #fee2e2; color: #991b1b; }
+.badge-warning { background: #fef3c7; color: #92400e; }
+.badge-info { background: #dbeafe; color: #1e40af; }
+.badge-neutral { background: #f1f5f9; color: #475569; }
+
+/* Modal */
+.modal-backdrop {
+  display: none; position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 100;
+  align-items: center; justify-content: center; padding: 20px;
+}
+.modal-backdrop.active { display: flex; }
+.modal {
+  background: var(--surface); border-radius: 12px; width: 100%; max-width: 500px;
+  max-height: 90vh; overflow-y: auto; padding: 24px; box-shadow: 0 20px 60px rgba(0,0,0,.3);
+}
+.modal h2 { font-size: 18px; margin-bottom: 16px; }
+.modal .form-group { margin-bottom: 14px; }
+.modal label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 4px; }
+.modal .modal-actions { display: flex; gap: 8px; justify-content: flex-end; margin-top: 20px; }
+.modal .modal-actions button:first-child { background: var(--primary); color: #fff; }
+.modal .modal-actions button:last-child { background: var(--surface); color: var(--text); border: 1px solid var(--border); }
+
+/* Forms */
+.form-group { margin-bottom: 16px; }
+.form-group label { display: block; font-size: 13px; font-weight: 500; margin-bottom: 4px; }
+.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+/* Toast */
+.toast-container { position: fixed; top: 20px; right: 20px; z-index: 200; display: flex; flex-direction: column; gap: 8px; }
+.toast {
+  padding: 12px 20px; border-radius: var(--radius); color: #fff; font-size: 14px;
+  box-shadow: 0 4px 12px rgba(0,0,0,.15); animation: slideIn .3s ease;
+}
+.toast-success { background: var(--success); }
+.toast-error { background: var(--danger); }
+.toast-info { background: var(--primary); }
+@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+/* Loading */
+.loading { text-align: center; padding: 40px; color: var(--text-muted); }
+.spinner { display: inline-block; width: 32px; height: 32px; border: 3px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: spin .6s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Empty state */
+.empty-state { text-align: center; padding: 40px; color: var(--text-muted); }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .sidebar { width: 200px; }
+  .main { margin-left: 200px; padding: 16px; }
+  .form-row { grid-template-columns: 1fr; }
+  .kpi-grid { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 640px) {
+  .app-layout { flex-direction: column; }
+  .sidebar { width: 100%; position: static; padding: 12px 16px; flex-direction: row; flex-wrap: wrap; align-items: center; }
+  .sidebar h2 { padding: 0; margin: 0; border: none; font-size: 14px; }
+  .sidebar nav { display: flex; gap: 4px; overflow-x: auto; }
+  .sidebar a { padding: 6px 12px; font-size: 13px; white-space: nowrap; }
+  .sidebar a span { display: none; }
+  .sidebar .logout-btn { margin: 0; padding: 6px 12px; }
+  .main { margin-left: 0; padding: 12px; }
+  .page-header { flex-direction: column; align-items: flex-start; gap: 8px; }
+  .page-header h1 { font-size: 20px; }
+  .kpi-grid { grid-template-columns: 1fr 1fr; }
+}
+</style>
+</head>
+<body>
+
+<div id="loginPage" class="login-page">
+  <div class="login-card">
+    <h1>InfinitePay</h1>
+    <p>Middleware Dashboard</p>
+    <div class="form-group">
+      <label for="loginUser">Usuário</label>
+      <input type="text" id="loginUser" placeholder="admin" autocomplete="username">
+    </div>
+    <div class="form-group">
+      <label for="loginPass">Senha</label>
+      <input type="password" id="loginPass" placeholder="••••••" autocomplete="current-password">
+    </div>
+    <button id="loginBtn">Entrar</button>
+    <div class="login-error" id="loginError"></div>
+  </div>
+</div>
+
+<div id="appLayout" class="app-layout">
+  <aside class="sidebar">
+    <h2>⚡ InfinitePay</h2>
+    <nav>
+      <a href="#home" data-page="home" onclick="navigate('home')"><span>📊</span> Dashboard</a>
+      <a href="#checkouts" data-page="checkouts" onclick="navigate('checkouts')"><span>🛒</span> Checkouts</a>
+      <a href="#payments" data-page="payments" onclick="navigate('payments')"><span>💳</span> Pagamentos</a>
+      <a href="#subscriptions" data-page="subscriptions" onclick="navigate('subscriptions')"><span>🔄</span> Assinaturas</a>
+      <a href="#settings" data-page="settings" onclick="navigate('settings')"><span>⚙️</span> Configurações</a>
+    </nav>
+    <button class="logout-btn" onclick="logout()">Sair</button>
+  </aside>
+  <main class="main">
+
+    <!-- Home -->
+    <div id="page-home" class="page">
+      <div class="page-header"><h1>Dashboard</h1></div>
+      <div class="kpi-grid" id="kpiGrid"></div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px">
+        <div class="table-container"><h3 style="padding:16px;font-size:16px">Últimos Checkouts</h3><table id="recentCheckouts"><tr><th>ID</th><th>Cliente</th><th>Valor</th><th>Status</th></tr></table></div>
+        <div class="table-container"><h3 style="padding:16px;font-size:16px">Últimos Pagamentos</h3><table id="recentPayments"><tr><th>ID</th><th>Valor</th><th>Status</th></tr></table></div>
+      </div>
+    </div>
+
+    <!-- Checkouts -->
+    <div id="page-checkouts" class="page">
+      <div class="page-header"><h1>Checkouts</h1><div class="actions"><button onclick="showCreateCheckout()">+ Novo Checkout</button></div></div>
+      <div class="table-container"><table id="checkoutsTable"><thead><tr><th>ID</th><th>Cliente</th><th>Valor</th><th>Status</th><th>Data</th></tr></thead><tbody></tbody></table></div>
+      <div id="checkoutsPagination" class="empty-state" style="padding:12px"></div>
+    </div>
+
+    <!-- Payments -->
+    <div id="page-payments" class="page">
+      <div class="page-header"><h1>Pagamentos</h1></div>
+      <div class="table-container"><table id="paymentsTable"><thead><tr><th>ID</th><th>Valor</th><th>Método</th><th>Status</th><th>Data</th></tr></thead><tbody></tbody></table></div>
+      <div id="paymentsPagination" class="empty-state" style="padding:12px"></div>
+    </div>
+
+    <!-- Subscriptions -->
+    <div id="page-subscriptions" class="page">
+      <div class="page-header"><h1>Assinaturas</h1><div class="actions"><button onclick="showCreateSubscription()">+ Nova Assinatura</button></div></div>
+      <div class="table-container"><table id="subscriptionsTable"><thead><tr><th>ID</th><th>Cliente</th><th>Plano</th><th>Valor</th><th>Status</th><th>Próximo Venc.</th></tr></thead><tbody></tbody></table></div>
+      <div id="subscriptionsPagination" class="empty-state" style="padding:12px"></div>
+    </div>
+
+    <!-- Settings -->
+    <div id="page-settings" class="page">
+      <div class="page-header"><h1>Configurações InfinitePay</h1><div class="actions"><button id="saveSettingsBtn" onclick="saveSettings()">Salvar</button></div></div>
+      <div class="table-container" style="padding:24px;max-width:600px">
+        <div class="form-group"><label for="setApiKey">API Key</label><input type="text" id="setApiKey" placeholder="sk_..."></div>
+        <div class="form-group"><label for="setClientId">Client ID</label><input type="text" id="setClientId" placeholder="client_id_..."></div>
+        <div class="form-group"><label for="setClientSecret">Client Secret</label><input type="password" id="setClientSecret" placeholder="••••••"></div>
+        <div class="form-group"><label for="setWebhookSecret">Webhook Secret</label><input type="password" id="setWebhookSecret" placeholder="••••••"></div>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Create Checkout Modal -->
+<div class="modal-backdrop" id="checkoutModal">
+  <div class="modal">
+    <h2>Novo Checkout</h2>
+    <div class="form-group"><label>Nome do Cliente</label><input id="coName" placeholder="João Silva"></div>
+    <div class="form-group"><label>Email</label><input id="coEmail" type="email" placeholder="joao@email.com"></div>
+    <div class="form-group"><label>CPF/CNPJ</label><input id="coDoc" placeholder="000.000.000-00"></div>
+    <div class="form-group"><label>Valor (R$)</label><input id="coAmount" type="number" step="0.01" placeholder="99,90"></div>
+    <div class="form-group"><label>Descrição (opcional)</label><input id="coDesc" placeholder="Pedido #123"></div>
+    <div class="modal-actions"><button onclick="createCheckout()">Criar Checkout</button><button onclick="closeModal('checkoutModal')">Cancelar</button></div>
+  </div>
+</div>
+
+<!-- Create Subscription Modal -->
+<div class="modal-backdrop" id="subModal">
+  <div class="modal">
+    <h2>Nova Assinatura</h2>
+    <div class="form-group"><label>Nome do Cliente</label><input id="subName" placeholder="Maria Souza"></div>
+    <div class="form-group"><label>Email</label><input id="subEmail" type="email" placeholder="maria@email.com"></div>
+    <div class="form-group"><label>CPF/CNPJ</label><input id="subDoc" placeholder="000.000.000-00"></div>
+    <div class="form-group"><label>Plano</label><select id="subPlan"></select></div>
+    <div class="form-group"><label>Valor (R$, opcional — usa valor do plano se vazio)</label><input id="subAmount" type="number" step="0.01" placeholder="deixar vazio = valor do plano"></div>
+    <div class="form-group"><label>Próximo Vencimento</label><input id="subDueDate" type="date"></div>
+    <div class="modal-actions"><button onclick="createSubscription()">Criar Assinatura</button><button onclick="closeModal('subModal')">Cancelar</button></div>
+  </div>
+</div>
+
+<div class="toast-container" id="toastContainer"></div>
+
+<script>
+const API = window.location.origin;
+
+function getToken() { return localStorage.getItem('ip_token'); }
+function setToken(t) { localStorage.setItem('ip_token', t); }
+function clearToken() { localStorage.removeItem('ip_token'); }
+
+async function api(path, opts = {}) {
+  const headers = { 'Content-Type': 'application/json' };
+  const token = getToken();
+  if (token) headers['Authorization'] = `Bearer ${token}`;
+  const res = await fetch(`${API}${path}`, { ...opts, headers: { ...headers, ...opts.headers } });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || data.message || 'Erro desconhecido');
+  return data;
+}
+
+function toast(msg, type = 'success') {
+  const c = document.getElementById('toastContainer');
+  const t = document.createElement('div');
+  t.className = `toast toast-${type}`;
+  t.textContent = msg;
+  c.appendChild(t);
+  setTimeout(() => t.remove(), 3500);
+}
+
+function closeModal(id) { document.getElementById(id).classList.remove('active'); }
+function openModal(id) { document.getElementById(id).classList.add('active'); }
+
+function show(page) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.sidebar a').forEach(a => a.classList.remove('active'));
+  const pg = document.getElementById(`page-${page}`);
+  if (pg) pg.classList.add('active');
+  const link = document.querySelector(`.sidebar a[data-page="${page}"]`);
+  if (link) link.classList.add('active');
+}
+
+function navigate(page) {
+  if (!getToken()) { window.location.hash = 'login'; return; }
+  show(page);
+  window.location.hash = page;
+  if (page === 'home') loadHome();
+  else if (page === 'checkouts') loadCheckouts();
+  else if (page === 'payments') loadPayments();
+  else if (page === 'subscriptions') loadSubscriptions();
+  else if (page === 'settings') loadSettings();
+}
+
+function logout() { clearToken(); document.getElementById('appLayout').classList.remove('active'); document.getElementById('loginPage').style.display = 'flex'; window.location.hash = ''; }
+
+// Auth
+document.getElementById('loginBtn').addEventListener('click', async () => {
+  const username = document.getElementById('loginUser').value;
+  const password = document.getElementById('loginPass').value;
+  const errEl = document.getElementById('loginError');
+  errEl.style.display = 'none';
+  try {
+    const data = await api('/api/v1/auth/login', {
+      method: 'POST', body: JSON.stringify({ username, password })
+    });
+    setToken(data.token);
+    document.getElementById('loginPage').style.display = 'none';
+    document.getElementById('appLayout').classList.add('active');
+    navigate('home');
+  } catch (e) {
+    errEl.textContent = e.message;
+    errEl.style.display = 'block';
+  }
+});
+
+document.getElementById('loginPass').addEventListener('keydown', e => { if (e.key === 'Enter') document.getElementById('loginBtn').click(); });
+
+// Check auth on load
+(function init() {
+  if (getToken()) {
+    try {
+      const payload = JSON.parse(atob(getToken().split('.')[1]));
+      if (payload.exp * 1000 > Date.now()) {
+        document.getElementById('loginPage').style.display = 'none';
+        document.getElementById('appLayout').classList.add('active');
+        return;
+      }
+    } catch (_) {}
+  }
+  document.getElementById('loginPage').style.display = 'flex';
+})();
+
+// ---------- Dashboard Home ----------
+async function loadHome() {
+  const kpiEl = document.getElementById('kpiGrid');
+  kpiEl.innerHTML = '<div class="loading"><div class="spinner"></div></div>';
+  try {
+    const data = await api('/api/v1/index');
+    kpiEl.innerHTML = `
+      <div class="kpi-card"><div class="label">Checkouts</div><div class="value">${data.totalCheckouts ?? '-'}</div></div>
+      <div class="kpi-card" style="border-left-color:var(--success)"><div class="label">Pagamentos Aprovados</div><div class="value">${data.approvedPayments ?? '-'}</div></div>
+      <div class="kpi-card" style="border-left-color:var(--warning)"><div class="label">Assinaturas Ativas</div><div class="value">${data.activeSubscriptions ?? '-'}</div></div>
+      <div class="kpi-card" style="border-left-color:var(--danger)"><div class="label">Faturamento (mês)</div><div class="value">R$ ${(data.monthlyRevenue ?? 0).toFixed(2)}</div></div>
+    `;
+  } catch (e) {
+    kpiEl.innerHTML = `<div class="empty-state">Erro ao carregar: ${e.message}</div>`;
+  }
+  // Recent checkouts
+  try {
+    const c = await api('/api/v1/checkouts?limit=5&orderBy=createdAt&orderDir=desc');
+    const tbody = document.querySelector('#recentCheckouts');
+    const items = c.data || c || [];
+    let html = '<tr><th>ID</th><th>Cliente</th><th>Valor</th><th>Status</th></tr>';
+    (Array.isArray(items) ? items : []).slice(0, 5).forEach(co => {
+      const cust = co.customer || {};
+      html += `<tr><td style="font-family:monospace;font-size:11px">${(co.id || '').slice(0,8)}</td><td>${cust.name || '-'}</td><td>R$ ${(co.amount || 0).toFixed(2)}</td><td><span class="badge badge-${co.status === 'completed' ? 'success' : co.status === 'pending' ? 'warning' : 'neutral'}">${co.status || '-'}</span></td></tr>`;
+    });
+    if ((Array.isArray(items) ? items : []).length === 0) html += '<tr><td colspan="4" class="empty-state">Nenhum checkout encontrado</td></tr>';
+    tbody.innerHTML = html;
+  } catch (_) {}
+  try {
+    const p = await api('/api/v1/payments?limit=5&orderBy=createdAt&orderDir=desc');
+    const tbody = document.querySelector('#recentPayments');
+    const items = p.data || p || [];
+    let html = '<tr><th>ID</th><th>Valor</th><th>Status</th></tr>';
+    (Array.isArray(items) ? items : []).slice(0, 5).forEach(pm => {
+      html += `<tr><td style="font-family:monospace;font-size:11px">${(pm.id || '').slice(0,8)}</td><td>R$ ${(pm.amount || 0).toFixed(2)}</td><td><span class="badge badge-${pm.status === 'approved' ? 'success' : pm.status === 'pending' ? 'warning' : pm.status === 'refused' ? 'danger' : 'neutral'}">${pm.status || '-'}</span></td></tr>`;
+    });
+    if ((Array.isArray(items) ? items : []).length === 0) html += '<tr><td colspan="3" class="empty-state">Nenhum pagamento encontrado</td></tr>';
+    tbody.innerHTML = html;
+  } catch (_) {}
+}
+
+// ---------- Checkouts ----------
+let checkoutsPage = 1;
+async function loadCheckouts(pg) {
+  if (pg != null) checkoutsPage = pg;
+  const tbody = document.querySelector('#checkoutsTable tbody');
+  tbody.innerHTML = '<tr><td colspan="5" class="loading"><div class="spinner"></div></td></tr>';
+  try {
+    const data = await api(`/api/v1/checkouts?page=${checkoutsPage}&limit=20&orderBy=createdAt&orderDir=desc`);
+    const items = data.data || data || [];
+    if (!Array.isArray(items) || items.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" class="empty-state">Nenhum checkout encontrado</td></tr>';
+      document.getElementById('checkoutsPagination').textContent = '';
+      return;
+    }
+    let html = '';
+    items.forEach(co => {
+      const cust = co.customer || {};
+      const d = co.createdAt ? new Date(co.createdAt).toLocaleDateString('pt-BR') : '-';
+      html += `<tr><td style="font-family:monospace;font-size:11px">${(co.id || '').slice(0,8)}</td><td>${cust.name || '-'}</td><td>R$ ${(co.amount || 0).toFixed(2)}</td><td><span class="badge badge-${co.status === 'completed' ? 'success' : co.status === 'pending' ? 'warning' : 'neutral'}">${co.status || '-'}</span></td><td>${d}</td></tr>`;
+    });
+    tbody.innerHTML = html;
+    document.getElementById('checkoutsPagination').textContent = `Página ${checkoutsPage}`;
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="5" class="empty-state">Erro: ${e.message}</td></tr>`;
+  }
+}
+
+function showCreateCheckout() {
+  document.getElementById('coName').value = '';
+  document.getElementById('coEmail').value = '';
+  document.getElementById('coDoc').value = '';
+  document.getElementById('coAmount').value = '';
+  document.getElementById('coDesc').value = '';
+  openModal('checkoutModal');
+}
+
+async function createCheckout() {
+  const name = document.getElementById('coName').value;
+  const email = document.getElementById('coEmail').value;
+  const doc = document.getElementById('coDoc').value;
+  const amount = parseFloat(document.getElementById('coAmount').value);
+  const desc = document.getElementById('coDesc').value;
+  if (!name || !email || !amount) { toast('Preencha nome, email e valor', 'error'); return; }
+  try {
+    await api('/api/v1/checkouts', {
+      method: 'POST',
+      body: JSON.stringify({
+        customer: { name, email, document: doc || undefined },
+        items: [{ name: desc || 'Checkout', quantity: 1, price: Math.round(amount * 100) }],
+        amount: Math.round(amount * 100),
+        description: desc || undefined,
+      }),
+    });
+    toast('Checkout criado com sucesso!');
+    closeModal('checkoutModal');
+    loadCheckouts(1);
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+// ---------- Payments ----------
+let paymentsPage = 1;
+async function loadPayments(pg) {
+  if (pg != null) paymentsPage = pg;
+  const tbody = document.querySelector('#paymentsTable tbody');
+  tbody.innerHTML = '<tr><td colspan="5" class="loading"><div class="spinner"></div></td></tr>';
+  try {
+    const data = await api(`/api/v1/payments?page=${paymentsPage}&limit=20&orderBy=createdAt&orderDir=desc`);
+    const items = data.data || data || [];
+    if (!Array.isArray(items) || items.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="5" class="empty-state">Nenhum pagamento encontrado</td></tr>';
+      document.getElementById('paymentsPagination').textContent = '';
+      return;
+    }
+    let html = '';
+    items.forEach(pm => {
+      const d = pm.createdAt ? new Date(pm.createdAt).toLocaleDateString('pt-BR') : '-';
+      html += `<tr><td style="font-family:monospace;font-size:11px">${(pm.id || '').slice(0,8)}</td><td>R$ ${(pm.amount || 0).toFixed(2)}</td><td>${pm.paymentMethod || pm.method || '-'}</td><td><span class="badge badge-${pm.status === 'approved' ? 'success' : pm.status === 'pending' ? 'warning' : pm.status === 'refused' ? 'danger' : 'neutral'}">${pm.status || '-'}</span></td><td>${d}</td></tr>`;
+    });
+    tbody.innerHTML = html;
+    document.getElementById('paymentsPagination').textContent = `Página ${paymentsPage}`;
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="5" class="empty-state">Erro: ${e.message}</td></tr>`;
+  }
+}
+
+// ---------- Subscriptions ----------
+let subsPage = 1;
+async function loadSubscriptions(pg) {
+  if (pg != null) subsPage = pg;
+  const tbody = document.querySelector('#subscriptionsTable tbody');
+  tbody.innerHTML = '<tr><td colspan="6" class="loading"><div class="spinner"></div></td></tr>';
+  try {
+    const data = await api(`/api/v1/recurrence/subscriptions?page=${subsPage}&limit=20&orderBy=createdAt&orderDir=desc`);
+    const items = data.data || [];
+    if (!Array.isArray(items) || items.length === 0) {
+      tbody.innerHTML = '<tr><td colspan="6" class="empty-state">Nenhuma assinatura encontrada</td></tr>';
+      document.getElementById('subscriptionsPagination').textContent = '';
+      return;
+    }
+    let html = '';
+    items.forEach(s => {
+      const cust = s.customer || {};
+      const plan = s.plan || {};
+      const d = s.next_due_date ? new Date(s.next_due_date).toLocaleDateString('pt-BR') : '-';
+      html += `<tr><td style="font-family:monospace;font-size:11px">${(s.id || '').slice(0,8)}</td><td>${cust.name || '-'}</td><td>${plan.name || '-'}</td><td>R$ ${(s.amount || plan.amount || 0).toFixed(2)}</td><td><span class="badge badge-${s.status === 'active' ? 'success' : s.status === 'past_due' ? 'danger' : s.status === 'pending' ? 'warning' : 'neutral'}">${s.status || '-'}</span></td><td>${d}</td></tr>`;
+    });
+    tbody.innerHTML = html;
+    document.getElementById('subscriptionsPagination').textContent = `Página ${subsPage}`;
+  } catch (e) {
+    tbody.innerHTML = `<tr><td colspan="6" class="empty-state">Erro: ${e.message}</td></tr>`;
+  }
+}
+
+async function showCreateSubscription() {
+  document.getElementById('subName').value = '';
+  document.getElementById('subEmail').value = '';
+  document.getElementById('subDoc').value = '';
+  document.getElementById('subAmount').value = '';
+  document.getElementById('subDueDate').value = '';
+  const sel = document.getElementById('subPlan');
+  sel.innerHTML = '<option value="">Carregando...</option>';
+  openModal('subModal');
+  try {
+    const data = await api('/api/v1/recurrence/plans?status=active');
+    const plans = data.data || [];
+    sel.innerHTML = '<option value="">Selecione um plano</option>' + plans.map(p => `<option value="${p.id}">${p.name} - R$ ${(p.amount || 0).toFixed(2)}</option>`).join('');
+    if (plans.length === 0) sel.innerHTML = '<option value="">Nenhum plano ativo disponível</option>';
+  } catch (e) {
+    sel.innerHTML = '<option value="">Erro ao carregar planos</option>';
+  }
+}
+
+async function createSubscription() {
+  const name = document.getElementById('subName').value;
+  const email = document.getElementById('subEmail').value;
+  const doc = document.getElementById('subDoc').value;
+  const planId = document.getElementById('subPlan').value;
+  const amount = document.getElementById('subAmount').value;
+  const dueDate = document.getElementById('subDueDate').value;
+  if (!name || !email || !planId || !dueDate) { toast('Preencha nome, email, plano e vencimento', 'error'); return; }
+  try {
+    await api('/api/v1/recurrence/subscriptions', {
+      method: 'POST',
+      body: JSON.stringify({
+        planId,
+        customer: { name, email, document: doc || undefined },
+        nextDueDate: new Date(dueDate).toISOString(),
+        ...(amount ? { metadata: { amountOverride: Math.round(parseFloat(amount) * 100) } } : {}),
+      }),
+    });
+    toast('Assinatura criada com sucesso!');
+    closeModal('subModal');
+    loadSubscriptions(1);
+  } catch (e) { toast(e.message, 'error'); }
+}
+
+// ---------- Settings ----------
+async function loadSettings() {
+  try {
+    const data = await api('/api/v1/settings');
+    if (data.configured) {
+      document.getElementById('setApiKey').value = data.apiKey || '';
+      document.getElementById('setClientId').value = data.clientId || '';
+      document.getElementById('setClientSecret').value = data.clientSecret || '';
+      document.getElementById('setWebhookSecret').value = data.webhookSecret || '';
+    }
+  } catch (e) { toast('Erro ao carregar configurações: ' + e.message, 'error'); }
+}
+
+async function saveSettings() {
+  const btn = document.getElementById('saveSettingsBtn');
+  btn.textContent = 'Salvando...'; btn.disabled = true;
+  try {
+    await api('/api/v1/settings', {
+      method: 'PUT',
+      body: JSON.stringify({
+        apiKey: document.getElementById('setApiKey').value,
+        clientId: document.getElementById('setClientId').value,
+        clientSecret: document.getElementById('setClientSecret').value,
+        webhookSecret: document.getElementById('setWebhookSecret').value,
+      }),
+    });
+    toast('Configurações salvas com sucesso!');
+    loadSettings();
+  } catch (e) { toast(e.message, 'error'); }
+  finally { btn.textContent = 'Salvar'; btn.disabled = false; }
+}
+</script>
+</body>
+</html>

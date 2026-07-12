@@ -6,6 +6,8 @@ import fastifyHelmet from '@fastify/helmet';
 import fastifyRateLimit from '@fastify/rate-limit';
 import fastifySwagger from '@fastify/swagger';
 import fastifySwaggerUi from '@fastify/swagger-ui';
+import fastifyStatic from '@fastify/static';
+import path from 'path';
 import { ZodError } from 'zod';
 import { AppError } from '../../shared/errors/AppError';
 import { registerRoutes } from '../../interfaces/http/routes/index';
@@ -145,6 +147,13 @@ export async function buildApp(): Promise<FastifyInstance> {
     paymentController: paymentCtrl,
     recurrenceController: recurrenceCtrl,
     settingsController: settingsCtrl,
+  });
+
+  // Serve dashboard static files
+  app.register(fastifyStatic, {
+    root: path.join(__dirname, '..', '..', '..', 'dashboard'),
+    prefix: '/dashboard/',
+    decorateReply: true,
   });
 
   // Global error handler
