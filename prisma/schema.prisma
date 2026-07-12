@@ -216,3 +216,15 @@ model ApiKey {
 
   @@map("api_keys")
 }
+
+model GatewayConfig {
+  id            String   @id @default(uuid())
+  apiKey        String   @map("api_key")
+  clientId      String   @map("client_id")
+  clientSecret  String   @map("client_secret")
+  webhookSecret String   @map("webhook_secret")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+  createdAt     DateTime @default(now()) @map("created_at")
+
+  @@map("gateway_configs")
+}

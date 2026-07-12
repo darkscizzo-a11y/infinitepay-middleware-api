@@ -4,6 +4,7 @@ import {
   Checkout,
   CheckoutStatus,
   Customer,
+  GatewayConfig,
   InvoiceStatus,
   Payment,
   PaymentStatus,
@@ -172,4 +173,10 @@ export interface IWebhookEventRepository {
   create(data: CreateWebhookEventData): Promise<WebhookEvent>;
   markAsProcessed(id: string): Promise<WebhookEvent>;
   findUnprocessed(): Promise<WebhookEvent[]>;
+}
+
+// src/domain/repositories/IGatewayConfigRepository.ts
+export interface IGatewayConfigRepository {
+  get(): Promise<GatewayConfig | null>;
+  upsert(data: Omit<GatewayConfig, 'id' | 'createdAt' | 'updatedAt'>): Promise<GatewayConfig>;
 }

@@ -4,6 +4,7 @@ import { CheckoutController } from '../controllers/CheckoutController';
 import { WebhookController } from '../controllers/WebhookController';
 import { PaymentController } from '../controllers/PaymentController';
 import { RecurrenceController } from '../controllers/RecurrenceController';
+import { SettingsController } from '../controllers/SettingsController';
 
 export function registerRoutes(
   app: FastifyInstance,
@@ -12,11 +13,13 @@ export function registerRoutes(
     webhookController,
     paymentController,
     recurrenceController,
+    settingsController,
   }: {
     checkoutController: CheckoutController;
     webhookController: WebhookController;
     paymentController: PaymentController;
     recurrenceController: RecurrenceController;
+    settingsController: SettingsController;
   }
 ): void {
   // Health check (unauthenticated)
@@ -60,6 +63,10 @@ export function registerRoutes(
       );
       api.post('/recurrence/invoices', (req, reply) => recurrenceController.createInvoice(req, reply));
       api.get('/recurrence/invoices', (req, reply) => recurrenceController.listInvoices(req, reply));
+
+      // Settings
+      api.get('/settings', (req, reply) => settingsController.get(req, reply));
+      api.put('/settings', (req, reply) => settingsController.update(req, reply));
     },
     { prefix: '/api/v1' }
   );

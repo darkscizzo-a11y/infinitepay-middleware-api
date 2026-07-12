@@ -118,3 +118,14 @@ export interface SubscriptionInvoice {
   updatedAt: Date;
   subscription?: Subscription;
 }
+
+// src/domain/entities/GatewayConfig.ts
+export interface GatewayConfig {
+  id: string;
+  apiKey: string;
+  clientId: string;
+  clientSecret: string;
+  webhookSecret: string;
+  updatedAt: Date;
+  createdAt: Date;
+}

@@ -6,6 +6,8 @@ import fastifyHelmet from '@fastify/helmet';
 import fastifyRateLimit from '@fastify/rate-limit';
 import fastifySwagger from '@fastify/swagger';
 import fastifySwaggerUi from '@fastify/swagger-ui';
+import fastifyStatic from '@fastify/static';
+import path from 'path';
 import { ZodError } from 'zod';
 import { AppError } from '../../shared/errors/AppError';
 import { registerRoutes } from '../../interfaces/http/routes/index';
@@ -13,12 +15,15 @@ import { registerRoutes } from '../../interfaces/http/routes/index';
 // Repositories
 import { prisma } from '../database/prisma/client';
 import { CheckoutRepository } from '../database/repositories/CheckoutRepository';
-import { CustomerRepository } from '../database/repositories/repositories';
-import { PaymentRepository } from '../database/repositories/repositories';
-import { RecurrencePlanRepository } from '../database/repositories/repositories';
-import { SubscriptionInvoiceRepository } from '../database/repositories/repositories';
-import { SubscriptionRepository } from '../database/repositories/repositories';
-import { WebhookEventRepository } from '../database/repositories/repositories';
+import {
+  CustomerRepository,
+  PaymentRepository,
+  RecurrencePlanRepository,
+  SubscriptionInvoiceRepository,
+  SubscriptionRepository,
+  WebhookEventRepository,
+  GatewayConfigRepository,
+} from '../database/repositories/repositories';
 
 // Clients
 import { InfinitePayClient } from '../http/clients/InfinitePayClient';
@@ -36,6 +41,7 @@ import { CheckoutController } from '../../interfaces/http/controllers/CheckoutCo
 import { WebhookController } from '../../interfaces/http/controllers/WebhookController';
 import { PaymentController } from '../../interfaces/http/controllers/PaymentController';
 import { RecurrenceController } from '../../interfaces/http/controllers/RecurrenceController';
+import { SettingsController } from '../../interfaces/http/controllers/SettingsController';
 
 export async function buildApp(): Promise<FastifyInstance> {
   const app = Fastify({
@@ -81,7 +87,10 @@ export async function buildApp(): Promise<FastifyInstance> {
         version: '1.0.0',
         contact: { name: 'Suporte', email: 'suporte@seudominio.com.br' },
       },
-      servers: [{ url: `http://localhost:${process.env.PORT ?? 3000}`, description: 'Local' }],
+      servers: [
+        { url: 'https://meuinfinitepay.vercel.app', description: 'Produção' },
+        { url: `http://localhost:${process.env.PORT ?? 3000}`, description: 'Desenvolvimento' },
+      ],
       components: {
         securitySchemes: {
           bearerAuth: { type: 'http', scheme: 'bearer', bearerFormat: 'JWT' },
@@ -106,7 +115,14 @@ export async function buildApp(): Promise<FastifyInstance> {
   const subscriptionRepo = new SubscriptionRepository(prisma);
   const subscriptionInvoiceRepo = new SubscriptionInvoiceRepository(prisma);
   const webhookEventRepo = new WebhookEventRepository(prisma);
+  const gatewayConfigRepo = new GatewayConfigRepository(prisma);
   const ipClient = new InfinitePayClient();
+
+  // Load saved gateway config
+  const savedConfig = await gatewayConfigRepo.get();
+  if (savedConfig) {
+    ipClient.setCredentials(savedConfig.apiKey, savedConfig.clientId, savedConfig.clientSecret);
+  }
 
   const createCheckoutUC = new CreateCheckoutUseCase(checkoutRepo, customerRepo, paymentRepo, ipClient);
   const getCheckoutUC = new GetCheckoutUseCase(checkoutRepo);
@@ -122,6 +138,7 @@ export async function buildApp(): Promise<FastifyInstance> {
     subscriptionInvoiceRepo,
     customerRepo
   );
+  const settingsCtrl = new SettingsController(gatewayConfigRepo, ipClient);
 
   // Routes
   registerRoutes(app, {
@@ -129,6 +146,14 @@ export async function buildApp(): Promise<FastifyInstance> {
     webhookController: webhookCtrl,
     paymentController: paymentCtrl,
     recurrenceController: recurrenceCtrl,
+    settingsController: settingsCtrl,
+  });
+
+  // Serve dashboard
+  app.register(fastifyStatic, {
+    root: path.join(__dirname, '..', '..', '..', 'dashboard'),
+    prefix: '/dashboard/',
+    decorateReply: true,
   });
 
   // Global error handler

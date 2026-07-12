@@ -12,6 +12,7 @@ import {
   ISubscriptionInvoiceRepository,
   ISubscriptionRepository,
   IWebhookEventRepository,
+  IGatewayConfigRepository,
   CreateWebhookEventData,
   ListRecurrencePlansFilters,
   ListSubscriptionInvoicesFilters,
@@ -20,6 +21,7 @@ import {
 } from '../../../domain/repositories/index';
 import {
   Customer,
+  GatewayConfig,
   InvoiceStatus,
   Payment,
   PaymentStatus,
@@ -422,5 +424,26 @@ export class WebhookEventRepository implements IWebhookEventRepository {
       orderBy: { createdAt: 'asc' },
     });
     return events as unknown as WebhookEvent[];
+  }
+}
+
+// src/infrastructure/database/repositories/GatewayConfigRepository.ts
+export class GatewayConfigRepository implements IGatewayConfigRepository {
+  constructor(private readonly prisma: PrismaClient) {}
+
+  async get(): Promise<GatewayConfig | null> {
+    const config = await (this.prisma as any).gatewayConfig.findFirst();
+    return config as GatewayConfig | null;
+  }
+
+  async upsert(data: { apiKey: string; clientId: string; clientSecret: string; webhookSecret: string }): Promise<GatewayConfig> {
+    const existing = await (this.prisma as any).gatewayConfig.findFirst();
+    if (existing) {
+      return (this.prisma as any).gatewayConfig.update({
+        where: { id: existing.id },
+        data,
+      }) as Promise<GatewayConfig>;
+    }
+    return (this.prisma as any).gatewayConfig.create({ data }) as Promise<GatewayConfig>;
   }
 }
